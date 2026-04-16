@@ -1,6 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>  
+#include <stdarg.h> 
+
+char* pCrtCh;
+int line = 1;
+
+
+void err(const char *fmt,...)
+{
+    va_list va;
+    va_start(va,fmt);
+    fprintf(stderr,"lexical error at line %d: ", line);
+    vfprintf(stderr,fmt,va);
+    fputc('\n',stderr);
+    va_end(va);
+    exit(-1);
+}
+
 #define SAFEALLOC(var,Type) if((var=(Type*)malloc(sizeof(Type)))==NULL)err("not enough memory");
 
 enum{
@@ -45,6 +63,14 @@ enum{
     GREATEREQ
 };
 
+const char *tokenNames[] = {
+    "", "ID", "CT_INT", "CT_REAL", "CT_CHAR", "CT_STRING", 
+    "BREAK", "CHAR", "DOUBLE", "ELSE", "FOR", "IF", "RETURN", "STRUCT", "VOID", "WHILE",
+    "COMMA", "SEMICOLON", "LPAR", "RPAR", "LBRACKET", "RBRACKET", "LACC", "RACC",
+    "END", "ADD", "SUB", "MUL", "DIV", "DOT", "AND", "OR", "NOT", "ASSIGN", 
+    "EQUAL", "NOTEQ", "LESS", "LESSEQ", "GREATER", "GREATEREQ"
+};
+
 typedef struct _Token
 {
     int code;
@@ -78,8 +104,22 @@ Token* addTk(int code, int line)
     lastToken = tk;
     return tk;
 }
-char* pCrtCh;
-int line;
+
+char* createString(const char* start, const char* end)
+{
+    int len = end - start;
+    char* str = (char*)malloc(len + 1);
+    
+    if (str == NULL) {
+        err("not enough memory for createString");
+    }
+    
+    memcpy(str, start, len);
+    
+    str[len] = '\0';
+    
+    return str;
+}
 
 Token* getNextToken()
 {
@@ -217,6 +257,19 @@ Token* getNextToken()
                     pCrtCh++;
                     pStartCh = pCrtCh;
                     state = 24;
+                }
+                //int and real
+                else if(ch == '0')
+                {
+                    pStartCh = pCrtCh;
+                    pCrtCh++;
+                    state = 26; //check for zero, hex, octal 
+                }
+                else if(isdigit(ch) && ch != '0')
+                {
+                    pStartCh = pCrtCh;
+                    pCrtCh++;
+                    state = 33;
                 }
                 break;
 
@@ -426,7 +479,7 @@ Token* getNextToken()
                     state = 25;
                 } 
                 else if (ch == '\n' || ch == '\r' || ch == '\0' || ch == EOF) {
-                    err("Unterminated string constant at line %d", line);
+                    err("Unterminated string constant ");
                 } 
                 else {
                     pCrtCh++;
@@ -438,11 +491,267 @@ Token* getNextToken()
                 tk->text = createString(pStartCh, pCrtCh);
                 pCrtCh++;
                 return tk;
+            case 26: //seen 0
+                if(ch == 'x' || ch == 'X'){ //hex
+                    pCrtCh++;
+                    state = 28;
+                }
+                else if (isdigit(ch) && ch != '8' && ch != '9') 
+                { 
+                    pCrtCh++; state = 30; //octal
+                }
+                else if(ch == '.')
+                {
+                    pCrtCh++; state = 36; //Real case (eg:0.5) 
+                }
+                else
+                {
+                    state = 32; //just zero
+                }
+                break;
+            case 28: // HEX LOOP: After '0x'
+                if (isxdigit(ch)) 
+                { 
+                    pCrtCh++; 
+                } 
+                else 
+                {
+                    if (pCrtCh - pStartCh <= 2)
+                    { 
+                        err("Invalid hex: expected hex digits after 0x");
+                    }
+                    state = 29; // Final HEX state
+                }
+                break;
+
+            case 29: //final hex state
+                tk = addTk(CT_INT, line);
+                char *sHex = createString(pStartCh, pCrtCh);
+                tk->i = strtol(sHex, NULL, 16);
+                free(sHex);
+                return tk;
+
+            case 30:
+                if(isdigit(ch) && ch != '8' && ch != '9')
+                {
+                    pCrtCh++;
+                }
+                else 
+                {
+                    if(pCrtCh - pStartCh <= 1)
+                    {
+                        err("Invalid octal: expected octal digits after 0");
+                    }
+                    state = 31; //final octal state
+                }
+                break;
+                
+            case 31: //final octal state
+                tk = addTk(CT_INT, line);
+                char* sOct = createString(pStartCh, pCrtCh);
+                tk->i = strtol(sOct, NULL, 8);
+                free(sOct);
+                return tk;
+                
+            case 32: //final 0 state
+                tk = addTk(CT_INT, line);
+                tk->i = 0;
+                return tk;
+            
+            case 33: //base 10 int saw 1-9
+                if (isdigit(ch)) { pCrtCh++; } //stay here
+                else if (ch == '.') { pCrtCh++; state = 36; } // Real path
+                else if (ch == 'e' || ch == 'E') { pCrtCh++; state = 39; } // Exponent path
+                else { state = 34; } // Final base10 int
+                break;
+
+            case 34: //final base10 state
+                tk = addTk(CT_INT, line);
+                char *sInt = createString(pStartCh, pCrtCh);
+                tk->i = strtol(sInt, NULL, 10); 
+                free(sInt);
+                return tk;
+                
+            case 36: //seen dot after a 0 or base 10
+                if(isdigit(ch))
+                {
+                    pCrtCh++;
+                    state = 37;
+                }
+                else{
+                    err("Real number errorr:Need to see a digit after a dot");
+                }
+                break;
+
+            case 37: //seen .digit
+                if(isdigit(ch))
+                {
+                    pCrtCh++;
+                }
+                else if(ch == 'e' || ch == 'E')
+                {
+                    pCrtCh++;
+                    state = 39;
+                }
+                else{
+                    state = 38; //final real state 
+                }
+                break;
+
+            case 38: //final real state
+                tk = addTk(CT_REAL, line);
+                char *sReal = createString(pStartCh, pCrtCh);
+                tk->r = atof(sReal); 
+                free(sReal);
+                return tk;
+
+            case 39: //seen digits.digits and an e or digits and an e
+                if(ch == '-' || ch == '+')
+                {
+                    pCrtCh++;
+                    state = 40;
+                }
+                else if(isdigit(ch))
+                {
+                    pCrtCh++;
+                    state = 41;
+                }
+                else
+                {
+                    err("Wrong format real number");
+                }
+                break;
+
+            case 40:  //saw sign
+                if(isdigit(ch))
+                {
+                    pCrtCh++;
+                    state = 42;
+                }
+                else
+                {
+                    err("Wrong format for exponent number");
+                }
+                break;
+
+            case 41: //xx.xxExx
+                if(isdigit(ch))
+                {
+                    pCrtCh++;
+                }
+                else
+                {
+                    state = 38; //final real state
+                }
+                break;
+
+            case 42: //seen xx.xxE+/- or xxE+/- and at least a digit
+                if(isdigit(ch))
+                {
+                    pCrtCh++;
+                }
+                else
+                {
+                    state = 38; //final real state
+                }
+                break;
+                
         }
     }
 }
 
+void showTokens() {
+    Token *tk = tokens;
+    printf("\nLexical Analysis: Tokens List\n");
+    
+    while (tk != NULL) {
+        printf("Line %d | %-12s | ", tk->line, tokenNames[tk->code]);
 
-int main() {
+        switch (tk->code) {
+            case ID:
+                printf("Value: %s", tk->text);
+                break;
+            case CT_INT:
+                printf("Value: %ld", tk->i);
+                break;
+            case CT_REAL:
+                printf("Value: %g", tk->r);
+                break;
+            case CT_CHAR:
+                printf("Value: '%c'", (char)tk->i);
+                break;
+            case CT_STRING:
+                printf("Value: \"%s\"", tk->text);
+                break;
+            default:
+                break;
+        }
+        printf("\n");
+        tk = tk->next;
+    }
+}
+
+char* loadFile(const char* fileName) {
+    FILE* f = fopen(fileName, "rb");
+    if (!f) {
+        printf("Error: Could not open file %s\n", fileName);
+        exit(1);
+    }
+    
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    
+    char* buffer = (char*)malloc(size + 1);
+    if (!buffer) err("not enough memory");
+    
+    fread(buffer, 1, size, f);
+    buffer[size] = '\0';
+    
+    fclose(f);
+    return buffer;
+}
+
+void done() {
+    Token *tk = tokens;
+    while (tk != NULL) {
+        Token *nextTk = tk->next; 
+        
+        if (tk->code == ID || tk->code == CT_STRING) {
+            if (tk->text != NULL) {
+                free(tk->text);
+            }
+        }
+        
+        free(tk); 
+        tk = nextTk;
+    }
+    
+    tokens = NULL;
+    lastToken = NULL;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        printf("Usage: %s <input_file>\n", argv[0]);
+        return 1;
+    }
+
+    char* content = loadFile(argv[1]);
+    
+    pCrtCh = content;
+    line = 1;
+
+    Token* tk;
+    do {
+        tk = getNextToken();
+    } while (tk->code != END);
+
+    showTokens();
+
+    // Clean up
+    free(content);
+    done();
+    
     return 0;
 }
