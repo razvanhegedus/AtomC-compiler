@@ -1,3 +1,4 @@
+#include "lexer.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -21,47 +22,7 @@ void err(const char *fmt,...)
 
 #define SAFEALLOC(var,Type) if((var=(Type*)malloc(sizeof(Type)))==NULL)err("not enough memory");
 
-enum{
-    ID = 1,
-    CT_INT,
-    CT_REAL,
-    CT_CHAR,
-    CT_STRING,
-    BREAK,
-    CHAR,
-    DOUBLE,
-    ELSE,
-    FOR,
-    IF,
-    RETURN,
-    STRUCT,
-    VOID,
-    WHILE,
-    COMMA,
-    SEMICOLON,
-    LPAR,
-    RPAR,
-    LBRACKET,
-    RBRACKET,
-    LACC,
-    RACC,
-    END,
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    DOT,
-    AND,
-    OR,
-    NOT,
-    ASSIGN,
-    EQUAL,
-    NOTEQ,
-    LESS,
-    LESSEQ,
-    GREATER,
-    GREATEREQ
-};
+
 
 const char *tokenNames[] = {
     "", "ID", "CT_INT", "CT_REAL", "CT_CHAR", "CT_STRING", 
@@ -71,20 +32,12 @@ const char *tokenNames[] = {
     "EQUAL", "NOTEQ", "LESS", "LESSEQ", "GREATER", "GREATEREQ"
 };
 
-typedef struct _Token
-{
-    int code;
-    union{
-        char* text; //used for ID, CT_STRING
-        long int i; //CT_INT, CT_CHAR
-        double r; //CT_REAL
-    };
-    int line; //input file line
-    struct _Token* next;
-}Token;
 
 Token* lastToken = NULL; //tail of the list
 Token* tokens = NULL; //head of the lsit
+
+Token* crtTk = NULL;
+Token* consumedTk = NULL;
 
 Token* addTk(int code, int line)
 {
@@ -276,7 +229,7 @@ Token* getNextToken()
             case 1:
                 if(isalpha(ch) || ch == '_') 
                 {
-                    pCrtCh++; //consume the character
+                    pCrtCh++;
                 }
                 else state = 2;
                 break;
@@ -562,7 +515,8 @@ Token* getNextToken()
                 if (isdigit(ch)) { pCrtCh++; } //stay here
                 else if (ch == '.') { pCrtCh++; state = 36; } // Real path
                 else if (ch == 'e' || ch == 'E') { pCrtCh++; state = 39; } // Exponent path
-                else { state = 34; } // Final base10 int
+                else if(ch == ';' || ch == ',' || ch == ' ' || ch == '+' || ch == '-' || ch == '/' || ch == '*'){ state = 34; } // Final base10 int
+                else {err("Invalid integer");}
                 break;
 
             case 34: //final base10 state
@@ -731,27 +685,3 @@ void done() {
     lastToken = NULL;
 }
 
-int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        printf("Usage: %s <input_file>\n", argv[0]);
-        return 1;
-    }
-
-    char* content = loadFile(argv[1]);
-    
-    pCrtCh = content;
-    line = 1;
-
-    Token* tk;
-    do {
-        tk = getNextToken();
-    } while (tk->code != END);
-
-    showTokens();
-
-    // Clean up
-    free(content);
-    done();
-    
-    return 0;
-}
