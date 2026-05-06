@@ -1,6 +1,7 @@
 // first program
 void main()
 {
-	put_s("hello");
+	char c = '\n';
+	put_s("hello);
 }
 //end
