@@ -69,6 +69,7 @@ extern int line;
 
 // 4. Function Prototypes
 void err(const char *fmt, ...);
+void tkerr(const Token *tk,const char *fmt,...);
 Token* addTk(int code, int line);
 char* createString(const char* start, const char* end);
 Token* getNextToken();
