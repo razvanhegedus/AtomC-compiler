@@ -11,6 +11,7 @@ enum {
     CT_CHAR,
     CT_STRING,
     BREAK,
+    INT,
     CHAR,
     DOUBLE,
     ELSE,

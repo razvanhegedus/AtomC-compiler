@@ -37,7 +37,7 @@ void tkerr(const Token *tk,const char *fmt,...)
 
 const char *tokenNames[] = {
     "", "ID", "CT_INT", "CT_REAL", "CT_CHAR", "CT_STRING", 
-    "BREAK", "CHAR", "DOUBLE", "ELSE", "FOR", "IF", "RETURN", "STRUCT", "VOID", "WHILE",
+    "BREAK", "INT", "CHAR", "DOUBLE", "ELSE", "FOR", "IF", "RETURN", "STRUCT", "VOID", "WHILE",
     "COMMA", "SEMICOLON", "LPAR", "RPAR", "LBRACKET", "RBRACKET", "LACC", "RACC",
     "END", "ADD", "SUB", "MUL", "DIV", "DOT", "AND", "OR", "NOT", "ASSIGN", 
     "EQUAL", "NOTEQ", "LESS", "LESSEQ", "GREATER", "GREATEREQ"
@@ -254,6 +254,7 @@ Token* getNextToken()
                 else if (nCh == 4 && !memcmp(pStartCh, "else", 4)) tk = addTk(ELSE, line);
                 else if (nCh == 3 && !memcmp(pStartCh, "for", 3)) tk = addTk(FOR, line);
                 else if (nCh == 2 && !memcmp(pStartCh, "if", 2)) tk = addTk(IF, line);
+                else if (nCh == 3 && !memcmp(pStartCh, "int", 2)) tk = addTk(INT, line);
                 else if (nCh == 6 && !memcmp(pStartCh, "return", 6)) tk = addTk(RETURN, line);
                 else if (nCh == 6 && !memcmp(pStartCh, "struct", 6)) tk = addTk(STRUCT, line);
                 else if (nCh == 4 && !memcmp(pStartCh, "void", 4)) tk = addTk(VOID, line);

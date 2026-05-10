@@ -176,7 +176,7 @@ int exprMul() {
     Token* startTk = crtTk;
 
     if(exprCast()){
-        if(exprMulPrime) return 1;
+        if(exprMulPrime()) return 1;
     }
 
     crtTk = startTk;
@@ -375,4 +375,292 @@ int expr() {
     // it returns 0 to let the statement parser handle the error.
     if (exprAssign()) return 1;
     return 0;
+}
+
+
+/**
+ * stmCompund: LACC (varDef|stm)* RACC
+ */
+int stmCompound() {
+    Token *startTk = crtTk;
+    if(consume(LACC)){
+        while(1) {
+            if(varDef()){}
+            else if(stm()){}
+            else {
+                break;
+            }
+        }
+        if(consume(RACC)) {return 1;}
+        else {
+            tkerr(crtTk, "Expected variable definition, statement, or '}'");
+        }
+    }
+
+    crtTk = startTk;
+    return 0;
+}
+
+
+/**
+ * stm: stmCompound
+ *    | IF LPAR expr RPAR stm (ELSE stm)?
+ *    | WHILE LPAR expr RPAR stm
+ *    | FOR LPAR expr? SEMICOLON expr? SEMICOLON expr? RPAR stm
+ *    | BREAK SEMICOLON
+ *    | RETURN expr? SEMICOLON
+ *    | expr? SEMICOLON
+ */
+int stm() {
+    Token *startTk = crtTk;
+
+    if (stmCompound()) return 1;
+
+    crtTk = startTk;
+    if (consume(IF)) {
+        if (!consume(LPAR)) tkerr(crtTk, "Expected '(' after 'if'");
+        if (!expr()) tkerr(crtTk, "Invalid condition in 'if'");
+        if (!consume(RPAR)) tkerr(crtTk, "Expected ')' after 'if' condition");
+        if (!stm()) tkerr(crtTk, "Missing statement after 'if'");
+        if (consume(ELSE)) {
+            if (!stm()) tkerr(crtTk, "Missing statement after 'else'");
+        }
+        return 1;
+    }
+
+    crtTk = startTk;
+    if (consume(WHILE)) {
+        if (!consume(LPAR)) tkerr(crtTk, "Expected '(' after 'while'");
+        if (!expr()) tkerr(crtTk, "Invalid condition in 'while'");
+        if (!consume(RPAR)) tkerr(crtTk, "Expected ')' after 'while' condition");
+        if (!stm()) tkerr(crtTk, "Missing statement body for 'while' loop");
+        return 1;
+    }
+
+    crtTk = startTk;
+    if (consume(FOR)) {
+        if (!consume(LPAR)) tkerr(crtTk, "Expected '(' after 'for'");
+        expr(); // Optional init
+        if (!consume(SEMICOLON)) tkerr(crtTk, "Expected ';' after for-init");
+        expr(); // Optional condition
+        if (!consume(SEMICOLON)) tkerr(crtTk, "Expected ';' after for-condition");
+        expr(); // Optional step
+        if (!consume(RPAR)) tkerr(crtTk, "Expected ')' after for-header");
+        if (!stm()) tkerr(crtTk, "Missing statement body for 'for' loop");
+        return 1;
+    }
+
+    crtTk = startTk;
+    if (consume(BREAK)) {
+        if (consume(SEMICOLON)) return 1;
+        else tkerr(crtTk, "Missing ';' after 'break'");
+    }
+
+    crtTk = startTk;
+    if (consume(RETURN)) {
+        expr(); // Optional return value
+        if (consume(SEMICOLON)) return 1;
+        else tkerr(crtTk, "Missing ';' after 'return'");
+    }
+
+    crtTk = startTk;
+    if (expr()) {
+        if (consume(SEMICOLON)) return 1;
+        else tkerr(crtTk, "Missing ';' after expression");
+    } else if (consume(SEMICOLON)) {
+        return 1; 
+    }
+
+    crtTk = startTk;
+    return 0;
+}
+
+
+/**
+ * fnParam: typeBase ID arrayDecl?
+ */
+int fnParam() {
+    Token *startTk = crtTk;
+
+    if (typeBase()) {
+        // COMMITMENT POINT: Once we have a type, we REQUIRE an ID.
+        if (consume(ID)) {
+            // arrayDecl is optional (?), so we just call it.
+            // It will consume [CT_INT?] if it's there, or do nothing.
+            arrayDecl(); 
+            return 1;
+        } else {
+            tkerr(crtTk, "Expected identifier after type in function parameter");
+        }
+    }
+
+    crtTk = startTk;
+    return 0;
+}
+
+
+/**
+ * fnDef : (typeBase | VOID) ID LPAR (fnParam (COMMA fnParam)* )? RPAR stmCompound
+ */
+int fnDef() {
+    Token *startTk = crtTk;
+
+    // 1. Try to match the return type: typeBase OR VOID
+    int foundType = 0;
+    if (typeBase()) {
+        foundType = 1;
+    } else {
+        crtTk = startTk; // Reset to try VOID
+        if (consume(VOID)) {
+            foundType = 1;
+        }
+    }
+
+    if (foundType) {
+        if (consume(ID)) {
+            if (consume(LPAR)) {
+                if (fnParam()) {
+                    while (consume(COMMA)) {
+                        if (!fnParam()) tkerr(crtTk, "Expected parameter after ','");
+                    }
+                }
+
+                if (!consume(RPAR)) tkerr(crtTk, "Missing ')' in function signature");
+                if (!stmCompound()) tkerr(crtTk, "Missing function body");
+                
+                return 1; 
+            }
+        }
+    }
+
+    crtTk = startTk;
+    return 0;
+}
+
+
+/**
+ * arrayDecl : LBRACKET CT_INT? RBRACKET
+ */
+int arrayDecl(){
+    Token *startTk = crtTk;
+
+    if(consume(LBRACKET)) {
+        consume(CT_INT);
+        if(!consume(RBRACKET)) tkerr(crtTk, "Missing ] in array declaration");
+        return 1;
+    }
+
+    crtTk = startTk;
+    return 0;
+}
+
+
+/**
+ * typeBase : INT | DOUBLE | CHAR | STRUCT ID
+ */
+int typeBase() {
+    Token *startTk = crtTk;
+
+    if (consume(INT)) return 1;
+    if (consume(DOUBLE)) return 1;
+    if (consume(CHAR)) return 1;
+    
+    if (consume(STRUCT)) {
+        if (consume(ID)) {
+            return 1;
+        } else {
+            tkerr(crtTk, "Expected identifier after 'struct'");
+        }
+    }
+
+    crtTk = startTk;
+    return 0;
+}
+
+
+/**
+ * varDef: typeBase ID arrayDecl? SEMICOLON
+ */
+int varDef() {
+    Token *startTk = crtTk;
+
+    if (typeBase()) {
+        if (consume(ID)) {
+            // arrayDecl() is optional (?). It returns 0 or 1, 
+            // but we don't error if it's 0.
+            arrayDecl(); 
+
+            if (consume(SEMICOLON)) {
+                return 1;
+            } else {
+                tkerr(crtTk, "Missing ';' after variable declaration");
+            }
+        } else {
+            crtTk = startTk;
+            return 0;
+        }
+    }
+
+    crtTk = startTk;
+    return 0;
+}
+
+/**
+ * structDef: STRUCT ID LACC varDef* RACC SEMICOLON
+ */
+int structDef() {
+    Token *startTk = crtTk;
+
+    if (consume(STRUCT)) {
+        if (consume(ID)) {
+            if (consume(LACC)) {
+                // COMMITMENT: We are defining a struct body
+                while (varDef()) {
+                    // keep consuming variable definitions
+                }
+                
+                if (!consume(RACC)) tkerr(crtTk, "Missing '}' in struct definition");
+                if (!consume(SEMICOLON)) tkerr(crtTk, "Missing ';' after struct definition");
+                return 1;
+            }
+        }
+    }
+
+    crtTk = startTk;
+    return 0;
+}
+
+/**
+ * unit: (structDef | fnDef | varDef)* END
+ */
+int unit() {
+
+    while (1) {
+        Token *startTk = crtTk;
+
+        if (structDef()) {
+            continue; 
+        }
+
+        crtTk = startTk;
+        if (fnDef()) {
+            continue; 
+        }
+
+        crtTk = startTk;
+        if (varDef()) {
+            continue;
+        }
+
+        crtTk = startTk;
+        break;
+    }
+
+    if (consume(END)) {
+        return 1;
+    } else {
+        tkerr(crtTk, "Invalid global declaration or syntax error at top level");
+    }
+
+    return 0; 
 }
