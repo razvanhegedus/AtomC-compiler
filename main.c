@@ -22,6 +22,11 @@ int main(int argc, char* argv[]) {
     do {
         tk = getNextToken();
     } while (tk->code != END);
+   
+    printf("--- Tokens Found ---\n");
+    showTokens(); // This will print your ID, CT_INT, CT_STRING, etc.
+
+   
 
     crtTk = tokens; 
 

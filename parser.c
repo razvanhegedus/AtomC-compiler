@@ -579,29 +579,27 @@ int typeBase() {
 
 
 /**
- * varDef: typeBase ID arrayDecl? SEMICOLON
+ * varDef: typeBase ID arrayDecl? (ASSIGN expr)? SEMICOLON
  */
 int varDef() {
     Token *startTk = crtTk;
 
     if (typeBase()) {
         if (consume(ID)) {
-            // arrayDecl() is optional (?). It returns 0 or 1, 
-            // but we don't error if it's 0.
-            arrayDecl(); 
+            arrayDecl(); // Optional [size]
+
+            if (consume(ASSIGN)) {
+                if (!expr()) tkerr(crtTk, "Expected expression after '=' in declaration");
+            }
 
             if (consume(SEMICOLON)) {
                 return 1;
             } else {
                 tkerr(crtTk, "Missing ';' after variable declaration");
             }
-        } else {
-            crtTk = startTk;
-            return 0;
         }
+        crtTk = startTk;
     }
-
-    crtTk = startTk;
     return 0;
 }
 

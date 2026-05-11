@@ -98,7 +98,7 @@ Token* getNextToken()
         switch(state)
         {
             case 0: //start state
-                if(isalpha(ch) || ch == '_')  //for ID
+                if(isalnum(ch) || ch == '_')  //for ID
                 {
                     pStartCh = pCrtCh; //memorize beginning of the ID
                     pCrtCh++; //consume the character
@@ -254,7 +254,7 @@ Token* getNextToken()
                 else if (nCh == 4 && !memcmp(pStartCh, "else", 4)) tk = addTk(ELSE, line);
                 else if (nCh == 3 && !memcmp(pStartCh, "for", 3)) tk = addTk(FOR, line);
                 else if (nCh == 2 && !memcmp(pStartCh, "if", 2)) tk = addTk(IF, line);
-                else if (nCh == 3 && !memcmp(pStartCh, "int", 2)) tk = addTk(INT, line);
+                else if (nCh == 3 && !memcmp(pStartCh, "int", 3)) tk = addTk(INT, line);
                 else if (nCh == 6 && !memcmp(pStartCh, "return", 6)) tk = addTk(RETURN, line);
                 else if (nCh == 6 && !memcmp(pStartCh, "struct", 6)) tk = addTk(STRUCT, line);
                 else if (nCh == 4 && !memcmp(pStartCh, "void", 4)) tk = addTk(VOID, line);
@@ -412,49 +412,58 @@ Token* getNextToken()
                 return addTk(GREATER, line);
             
             case 21:
-                if(ch != '\'' && ch != '\n' && ch != '\r' && ch != '\0' && ch != EOF)
-                {
+                if(ch == '\\') {
                     pCrtCh++;
                     state = 22;
                 }
-                else
-                {
-                    err("Invalid or empty character constant");
-                }
-                break;
-
-            case 22:
-                if(ch == '\'')
-                {
+                else if(ch != '\'' && ch != '\n' && ch != '\0') {
                     pCrtCh++;
                     state = 23;
                 }
-                else
-                {
-                    err("Missing closing single quote");
+                else {
+                    err("Invalid character constant");
+                }
+                break;
+
+            case 22: // escaped char
+                if(ch != '\0') {
+                    pCrtCh++;
+                    state = 23;
+                }
+                else {
+                    err("Invalid escape sequence");
                 }
                 break;
 
             case 23:
-                tk = addTk(CT_CHAR, line);
-                tk->i = *(pCrtCh - 2);
-                return tk;
+                if(ch == '\'') {
+                    pCrtCh++;
+                    tk = addTk(CT_CHAR, line);
+                    return tk;
+                }
+                else {
+                    err("Missing closing quote");
+                }
+            
             case 24:
-                if (ch == '\"') { 
+                if (ch == '\\') {
+                    pCrtCh += 2; // skip escaped character
+                }
+                else if (ch == '\"') {
+                    pCrtCh++;
                     state = 25;
-                } 
-                else if (ch == '\n' || ch == '\r' || ch == '\0' || ch == EOF) {
-                    err("Unterminated string constant ");
-                } 
+                }
+                else if (ch == '\0' || ch == '\n') {
+                    err("Unterminated string constant");
+                }
                 else {
                     pCrtCh++;
-                    // Stay in state 24
                 }
                 break;
+
             case 25:
                 tk = addTk(CT_STRING, line);
-                tk->text = createString(pStartCh, pCrtCh);
-                pCrtCh++;
+                tk->text = createString(pStartCh, pCrtCh - 1);
                 return tk;
             case 26: //seen 0
                 if(ch == 'x' || ch == 'X'){ //hex
@@ -523,15 +532,14 @@ Token* getNextToken()
                 tk->i = 0;
                 return tk;
             
-            case 33: //base 10 int saw 1-9
-                if (isdigit(ch)) { pCrtCh++; } //stay here
-                else if (ch == '.') { pCrtCh++; state = 36; } // Real path
-                else if (ch == 'e' || ch == 'E') { pCrtCh++; state = 39; } // Exponent path
-                else if(ch == ';' || ch == ',' || ch == ' ' || ch == '+' || ch == '-' || ch == '/' || ch == '*'){ state = 34; } // Final base10 int
-                else {err("Invalid integer");}
+            case 33: // base 10
+                if (isdigit(ch)) { pCrtCh++; } 
+                else if (ch == '.') { pCrtCh++; state = 36; } 
+                else if (ch == 'e' || ch == 'E') { pCrtCh++; state = 39; } 
+                else { state = 34; } // Go to final state for ANY other character
                 break;
 
-            case 34: //final base10 state
+            case 34: 
                 tk = addTk(CT_INT, line);
                 char *sInt = createString(pStartCh, pCrtCh);
                 tk->i = strtol(sInt, NULL, 10); 
