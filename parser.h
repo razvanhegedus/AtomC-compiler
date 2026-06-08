@@ -2,18 +2,19 @@
 #define PARSER_H
 
 #include "lexer.h"
+#include "DA.h"
 
 int consume(int code);
 
 int stm();
-int stmCompound();
+int stmCompound(int newDomain);
 
 int fnDef();
 int fnParam();
 int varDef();
 int structDef();
-int typeBase();
-int arrayDecl();
+int typeBase(Type *t);
+int arrayDecl(Type *t);
 
 int unit();
 

@@ -5,4 +5,5 @@ void main()
 	x=get_i();
 	if(x<0)put_s("negative");
 		else put_s("positive");
+	if x == 2)
 }

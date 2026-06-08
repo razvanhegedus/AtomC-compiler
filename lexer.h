@@ -3,6 +3,9 @@
 
 #include <stdio.h>
 
+#define SAFEALLOC(var,Type) if((var=(Type*)malloc(sizeof(Type)))==NULL)err("not enough memory");
+
+
 // 1. Token Codes
 enum {
     ID = 1,
