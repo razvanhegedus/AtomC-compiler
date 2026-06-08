@@ -31,9 +31,6 @@ void tkerr(const Token *tk,const char *fmt,...)
     exit(-1);
 }
 
-#define SAFEALLOC(var,Type) if((var=(Type*)malloc(sizeof(Type)))==NULL)err("not enough memory");
-
-
 
 const char *tokenNames[] = {
     "", "ID", "CT_INT", "CT_REAL", "CT_CHAR", "CT_STRING", 
@@ -98,7 +95,7 @@ Token* getNextToken()
         switch(state)
         {
             case 0: //start state
-                if(isalnum(ch) || ch == '_')  //for ID
+                if(isalpha(ch) || ch == '_')  //for ID
                 {
                     pStartCh = pCrtCh; //memorize beginning of the ID
                     pCrtCh++; //consume the character
