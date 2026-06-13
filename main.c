@@ -48,7 +48,8 @@ int main(int argc, char* argv[]) {
     owner = NULL;
     crtGlobalMemorySize = 0; // Reset global memory tracking allocation offset
 
-    // 3. Invoke the Parser
+    addExtFuncs();
+
     if (unit()) {
         printf("Compilation successful!\n");
         printf("Total Global Memory Allocated: %d bytes\n", crtGlobalMemorySize);
@@ -57,11 +58,8 @@ int main(int argc, char* argv[]) {
         printf("Compilation failed due to syntax or domain errors.\n");
     }
 
-    // 4. Memory Cleanup
-    // Free the dynamic array inside the symbol table container
+  
     if (symTable->begin) {
-        // Optional loop: You could loop through and free each individual Symbol* inside 
-        // the array here if you want a perfect 0-byte leak profile.
         free(symTable->begin);
     }
     free(symTable);
