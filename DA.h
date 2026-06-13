@@ -55,7 +55,7 @@ void initSymbols(Symbols *symbols);
 Symbol *newSymbol(const char *name, int kind);
 Symbol *addSymbolToDomain(Symbols *list, Symbol *s);
 Symbol *findSymbolInDomain(Symbols *list, const char *name);
-Symbol *findSymbol(const char *name); // Căutare globală în TS
+Symbol *findSymbol(const char *name); 
 
 void pushDomain();
 void dropDomain();
@@ -65,13 +65,14 @@ int symbolsLen(Symbols *list);
 Symbol *dupSymbol(Symbol *s);
 int typeSize(Type *t); 
 int allocInGlobalMemory(int size);
+Symbol *findSymbolInList(Symbols *list, const char *name);
 
 const char* kindToString(int kind);
 const char* memToString(int mem);
 void printType(Type *t);
 void printSymbol(Symbol *s, int indent);
 void printSymbolTable();
-
+void addExtFuncs();
 
 
 
