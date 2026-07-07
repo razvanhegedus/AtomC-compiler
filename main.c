@@ -3,7 +3,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "DA.h"
-
+#include "vm.h"
 
 extern int crtGlobalMemorySize;
 
@@ -28,15 +28,12 @@ int main(int argc, char* argv[]) {
     } while (tk->code != END);
    
     printf("--- Tokens Found ---\n");
-    showTokens(); // This will print your ID, CT_INT, CT_STRING, etc.
-
-   
+    showTokens(); 
 
     crtTk = tokens; 
 
     printf("--- Starting Syntactic & Domain Analysis ---\n");
 
-    // 2. Initialize the Global Domain State
     symTable = (Symbols*)malloc(sizeof(Symbols));
     if (symTable == NULL) {
         fprintf(stderr, "Fatal error: Not enough memory for global symbol table.\n");
@@ -46,19 +43,26 @@ int main(int argc, char* argv[]) {
     
     crtDepth = 0;
     owner = NULL;
-    crtGlobalMemorySize = 0; // Reset global memory tracking allocation offset
+    crtGlobalMemorySize = 0; 
 
-    addExtFuncs();
+    addExtFuncs(); 
 
     if (unit()) {
         printf("Compilation successful!\n");
         printf("Total Global Memory Allocated: %d bytes\n", crtGlobalMemorySize);
         printSymbolTable();
+
+        printf("\n--- Generare Instructiuni VM (Test) ---\n");
+        mvTest(); 
+        
+        printf("\n--- Start Executie VM ---\n");
+        run(instructions);
+        printf("\n--- Executie VM Terminata cu Succes ---\n");
+
     } else {
         printf("Compilation failed due to syntax or domain errors.\n");
     }
 
-  
     if (symTable->begin) {
         free(symTable->begin);
     }

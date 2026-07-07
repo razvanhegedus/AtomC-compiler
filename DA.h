@@ -41,7 +41,11 @@ typedef struct _Symbol {
     union {
         int varIdx;   
         int paramIdx; 
-    };      
+    };   
+    union{
+        void *addr; // vm: the memory address for global symbols
+        int offset; // vm: the stack offset for local symbols
+    };
 } Symbol;
 
 
@@ -56,6 +60,7 @@ Symbol *newSymbol(const char *name, int kind);
 Symbol *addSymbolToDomain(Symbols *list, Symbol *s);
 Symbol *findSymbolInDomain(Symbols *list, const char *name);
 Symbol *findSymbol(const char *name); 
+Symbol *requireSymbol(Symbols *list, const char *name);
 
 void pushDomain();
 void dropDomain();

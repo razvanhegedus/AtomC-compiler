@@ -4,6 +4,7 @@
 #include "parser.h"
 #include "DA.h"
 #include "TA.h"
+#include "vm.h"
 
 
 Type createType(int typeBase, int nElements){
@@ -267,6 +268,16 @@ void printType(Type *t) {
     } else if (t->nElements > 0) {
         printf("[%d]", t->nElements);
     }
+}
+
+Symbol *requireSymbol(Symbols *list, const char *name) {
+    Symbol *s = findSymbolInDomain(list, name);
+    
+    if (s == NULL) {
+        err("Eroare critica: Simbolul '%s' lipseste din tabela de simboluri!", name);
+    }
+    
+    return s;
 }
 
 void printSymbol(Symbol *s, int indent) {
@@ -1122,17 +1133,18 @@ int unit() {
     return 0; 
 }
 
-
-Symbol *addExtFunc(const char *name, Type type) {
+Symbol *addExtFunc(const char *name, Type type, void *addr) {
     Symbol *s = newSymbol(name, SK_FN); 
     s->type = type;
     
-    initSymbols(&s->fn.params); 
+    s->addr = addr; 
     
+    initSymbols(&s->fn.params); 
     addSymbolToDomain(symTable, s); 
     
     return s;
 }
+
 
 Symbol *addFuncArg(Symbol *func, const char *name, Type type) {
     Symbol *a = newSymbol(name, SK_PARAM); 
@@ -1143,30 +1155,18 @@ Symbol *addFuncArg(Symbol *func, const char *name, Type type) {
     return a;
 }
 
+extern void put_i();
 
 void addExtFuncs() {
     Symbol *s;
 
-    s = addExtFunc("put_s", createType(TB_VOID, -1));
-    addFuncArg(s, "s", createType(TB_CHAR, 0));
-
-    s = addExtFunc("get_s", createType(TB_VOID, -1));
-    addFuncArg(s, "s", createType(TB_CHAR, 0));
-
-    s = addExtFunc("put_i", createType(TB_VOID, -1));
+    s = addExtFunc("put_i", createType(TB_VOID, -1), put_i);
     addFuncArg(s, "i", createType(TB_INT, -1));
 
-    s = addExtFunc("get_i", createType(TB_INT, -1));
 
-    s = addExtFunc("put_d", createType(TB_VOID, -1));
-    addFuncArg(s, "d", createType(TB_DOUBLE, -1));
+    s = addExtFunc("put_s", createType(TB_VOID, -1), NULL);
+    addFuncArg(s, "s", createType(TB_CHAR, 0));
 
-    s = addExtFunc("get_d", createType(TB_DOUBLE, -1));
-
-    s = addExtFunc("put_c", createType(TB_VOID, -1));
-    addFuncArg(s, "c", createType(TB_CHAR, -1));
-
-    s = addExtFunc("get_c", createType(TB_CHAR, -1));
-
-    s = addExtFunc("seconds", createType(TB_DOUBLE, -1));
+    s = addExtFunc("get_i", createType(TB_INT, -1), NULL);
+    
 }
